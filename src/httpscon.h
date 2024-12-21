@@ -5,7 +5,7 @@
 #ifndef SDOWN_HTTPSCON_H
 #define SDOWN_HTTPSCON_H
 
-int download(char* url);
+int download(const char* url);
 
 
 #endif //SDOWN_HTTPSCON_H

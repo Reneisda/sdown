@@ -3,8 +3,11 @@
 //
 
 #include "httpscon.h"
+#include <stdint.h>
 
 
-int download(char* url) {
-
+int download(const char* url) {
+    if (url == NULL) {
+        return 1;
+    }
 }
