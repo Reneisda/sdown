@@ -14,8 +14,6 @@
 DWORD WINAPI download(void* vargp);
 uint8_t check_header_end(const char* end);
 
-size_t parse_data_length(const char* header);
-
 
 void drop_http_prefix(char* new_url, const char *url) {
     if (strcmp(url, "https://") > 0) {
@@ -290,7 +288,6 @@ int download_file_threaded(const char *url, int threads) {
     HANDLE* thread = (HANDLE*) malloc(sizeof(HANDLE) * threads);
     int i;
     for (i = 0; i < threads - 1; ++i) {
-        args[i].filename = filename;
         args[i].length = bytes_per_thread;
         args[i].addr = &addr;
         args[i].start = bytes_per_thread * i;
@@ -301,7 +298,6 @@ int download_file_threaded(const char *url, int threads) {
         ResumeThread(thread[i]);
     }
 
-    args[i].filename = filename;
     args[i].length = file_length - (bytes_per_thread * (threads - 1));
     args[i].addr = &addr;
     args[i].start = bytes_per_thread * i;
@@ -313,7 +309,7 @@ int download_file_threaded(const char *url, int threads) {
 
 
     WaitForMultipleObjects(threads, thread, TRUE, INFINITE);
-
+    free(args);
     concat_part_files(".", filename);
 
     printf("Done Downloading\n");

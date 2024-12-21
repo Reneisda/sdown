@@ -8,4 +8,7 @@ add_executable(sdown src/main.c
         src/httpcon.h
         src/httpscon.c
         src/httpscon.h)
+
+set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64/bin")
+
 target_link_libraries(sdown ws2_32 secur32)

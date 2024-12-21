@@ -13,7 +13,6 @@ typedef struct d_args {
     uint32_t length;
     uint32_t start;
     uint32_t index;
-    char* filename;
     char* path;
     char* hostname;
     struct sockaddr_in* addr;
@@ -27,5 +26,6 @@ void drop_http_prefix(char* new_url, const char *url);
 void get_hostname(char* server_name, const char *url);
 void get_path(char* path, const char *url);
 void get_filename(char* filename, const char *url);
+size_t parse_data_length(const char* header);
 
 #endif //SDOWN_HTTPCON_H
