@@ -17,7 +17,7 @@ uint8_t check_header_end(const char* end);
 size_t parse_data_length(const char* header);
 
 
-void drop_http_prefix(char* new_url, char* url) {
+void drop_http_prefix(char* new_url, const char *url) {
     if (strcmp(url, "https://") > 0) {
         strcpy(new_url, url + 8);
         return;
@@ -29,7 +29,7 @@ void drop_http_prefix(char* new_url, char* url) {
     strcpy(new_url, url);
 }
 
-void get_hostname(char* server_name, char* url) {
+void get_hostname(char* server_name, const char *url) {
     drop_http_prefix(server_name, url);
     for (int i = 0; i < strlen(server_name); ++i) {
         if (server_name[i] == '/')
@@ -37,7 +37,7 @@ void get_hostname(char* server_name, char* url) {
     }
 }
 
-void get_path(char* path, char* url) {
+void get_path(char* path, const char *url) {
     drop_http_prefix(path, url);
     for (int i = 0; i < strlen(path); ++i) {
         if (path[i] == '/') {
@@ -47,7 +47,7 @@ void get_path(char* path, char* url) {
     }
 }
 
-void get_filename(char* filename, char* url) {
+void get_filename(char* filename, const char *url) {
     for (size_t i = strlen(url); i > 0; --i) {
         if (url[i] == '/') {
             strcpy(filename, url + i + 1);
@@ -85,6 +85,8 @@ int get_address_by_hostname(struct addrinfo* result, const char* host, const cha
     freeaddrinfo(result);
     return 0; // Success
 }
+
+
 int is_part_file(char* filename) {
     size_t len = strlen(filename);
     return len > 5 && strcmp(filename + len - 5, ".part") == 0;
@@ -120,7 +122,7 @@ int concat_part_files(char* directory, char* filename) {
 
 
 
-int download_file(char* url) {
+int download_file(const char *url) {
     WSADATA WSAData;
     SOCKET client;
 
@@ -203,7 +205,7 @@ int download_file(char* url) {
 }
 
 
-int download_file_threaded(char* url, int threads) {
+int download_file_threaded(const char *url, int threads) {
     WSADATA WSAData;
     SOCKET client;
 
