@@ -4,6 +4,7 @@
 
 #ifndef SDOWN_HTTPCON_H
 #define SDOWN_HTTPCON_H
+
 #include <ws2tcpip.h>
 #include <stdint.h>
 
@@ -17,6 +18,12 @@ typedef struct d_args {
     char* hostname;
     struct sockaddr_in* addr;
 } d_args_t;
+
+typedef struct progress {
+    size_t size;
+    size_t current_all;
+    size_t* current;
+} progress_t;
 
 
 int get_address_by_hostname(struct addrinfo* result, const char* host, const char* port, struct sockaddr_in* addr, struct addrinfo* hints);

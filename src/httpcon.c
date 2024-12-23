@@ -9,13 +9,15 @@
 #include <stdint.h>
 #include <windows.h>
 #include <dirent.h>
+#include <unistd.h>
 
-//  "HTTP/1.0\r\nRange: bytes=20000-\r\n\r\n"
 DWORD WINAPI download(void* vargp);
-uint8_t check_header_end(const char* end);
+
+progress_t p;
 
 
 void drop_http_prefix(char* new_url, const char *url) {
+
     if (strcmp(url, "https://") > 0) {
         strcpy(new_url, url + 8);
         return;
@@ -206,6 +208,9 @@ int download_file(const char *url) {
 int download_file_threaded(const char *url, int threads) {
     WSADATA WSAData;
     SOCKET client;
+    p.current_all = 0;
+    p.size = 0;
+    p.current = (size_t*) calloc(threads, sizeof(size_t));
 
     char filename[260];
     char path[2048];
@@ -249,7 +254,7 @@ int download_file_threaded(const char *url, int threads) {
     char reply_header[BUFFER_SIZE];
 
     // getting size of file
-    sprintf(message_header, "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, hostname);
+    sprintf(message_header, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, hostname);
     printf("Sending Header: %s\n", message_header);
 
     if (send(client, message_header, (int) strlen(message_header), 0) == SOCKET_ERROR) {
@@ -262,7 +267,7 @@ int download_file_threaded(const char *url, int threads) {
     uint8_t found_end = 0;
     char chars[2] = {'\r', '\n'};
     int all = 0;
-    uint8_t toggle = 0;
+    register uint8_t toggle = 0;
     while (found_end != 4 && all < BUFFER_SIZE) {
         (void) recv(client, reply_header + all, 1, 0);
         if (reply_header[all++] == chars[toggle]) {
@@ -283,6 +288,7 @@ int download_file_threaded(const char *url, int threads) {
         return -1;
     }
     size_t bytes_per_thread = file_length / threads;
+    p.size = file_length;
 
     d_args_t* args = (d_args_t*) malloc(sizeof(d_args_t) * threads);
     HANDLE* thread = (HANDLE*) malloc(sizeof(HANDLE) * threads);
@@ -294,7 +300,7 @@ int download_file_threaded(const char *url, int threads) {
         args[i].index = i;
         args[i].path = path;
         args[i].hostname = hostname;
-        thread[i] = CreateThread(NULL, BUFFER_SIZE * 10, download, args + i, CREATE_SUSPENDED, NULL);
+        thread[i] = CreateThread(NULL, BUFFER_SIZE * 3, download, args + i, CREATE_SUSPENDED, NULL);
         ResumeThread(thread[i]);
     }
 
@@ -304,11 +310,27 @@ int download_file_threaded(const char *url, int threads) {
     args[i].index = i;
     args[i].path = path;
     args[i].hostname = hostname;
-    thread[i] = CreateThread(NULL, BUFFER_SIZE * 10, download, args + i, CREATE_SUSPENDED, NULL);
+    thread[i] = CreateThread(NULL, BUFFER_SIZE * 3, download, args + i, CREATE_SUSPENDED, NULL);
     ResumeThread(thread[i]);
 
+    while (p.current_all < file_length) {
+        p.current_all = 0;
+        for (int j = 0; j < threads; ++j) {
+            p.current_all += p.current[j];
+        }
+        printf("\r%zu%%", (p.current_all * 100) / p.size);
+        fflush(stdout);
+        sleep(1);
+    }
+
+    printf("\n");
 
     WaitForMultipleObjects(threads, thread, TRUE, INFINITE);
+
+    for (i = 0; i < threads; ++i) {
+        CloseHandle(thread[i]);
+    }
+
     free(args);
     concat_part_files(".", filename);
 
@@ -336,12 +358,10 @@ DWORD WINAPI download(void* vargp) {
     char message_header[BUFFER_SIZE] = "GET /";
     char reply_header[BUFFER_SIZE];
     char file_buffer[BUFFER_SIZE];
-    memset(reply_header, 0, sizeof(char) * BUFFER_SIZE);
     // getting size of file
     sprintf(message_header, "GET %s HTTP/1.0\r\nHost: %s\r\nRange: bytes=%d-\r\n\r\n",
             ((d_args_t*) vargp)->path, ((d_args_t*) vargp)->hostname, ((d_args_t*) vargp)->start);
 
-    memset(reply_header, 0, sizeof(char) * BUFFER_SIZE);
 
     if (send(client, message_header, (int) strlen(message_header), 0) == SOCKET_ERROR) {
         printf("Error sending header: %d\n", WSAGetLastError());
@@ -349,6 +369,7 @@ DWORD WINAPI download(void* vargp) {
         WSACleanup();
         return 0;
     }
+
     uint8_t found_end = 0;
     char chars[2] = {'\r', '\n'};
     size_t all = 0;
@@ -373,9 +394,10 @@ DWORD WINAPI download(void* vargp) {
     while (bytes_recv_all < ((d_args_t*) vargp)->length) {
         int bytes_received = recv(client, file_buffer, 1, 0);
         bytes_recv_all += bytes_received;
+        p.current[((d_args_t*) vargp)->index] = bytes_recv_all;
         fwrite(file_buffer, bytes_received, 1, f);
     }
+    p.current[((d_args_t*) vargp)->index] = bytes_recv_all;
     fclose(f);
-
     return 0;
 }
